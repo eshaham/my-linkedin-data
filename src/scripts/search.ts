@@ -1,50 +1,32 @@
 import "dotenv/config";
+import { Command, InvalidArgumentError } from "commander";
 import OpenAI from "openai";
 import { openDb } from "../db/open.js";
 import { EMBEDDING_MODEL, vectorToBlob } from "../embeddings/openai.js";
 
 type Kind = "title" | "company";
 
-interface Args {
-  query: string;
+interface Options {
   kind: Kind;
   limit: number;
 }
 
-function parseArgs(argv: string[]): Args {
-  let kind: Kind = "title";
-  let limit = 20;
-  const positional: string[] = [];
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--kind") {
-      const next = argv[++i];
-      if (next !== "title" && next !== "company") {
-        throw new Error(`--kind must be 'title' or 'company', got '${next}'`);
-      }
-      kind = next;
-    } else if (a === "--limit") {
-      const next = argv[++i];
-      const n = Number(next);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new Error(`--limit must be a positive number, got '${next}'`);
-      }
-      limit = n;
-    } else if (a !== undefined) {
-      positional.push(a);
-    }
+function parsePositiveInt(value: string): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new InvalidArgumentError("must be a positive integer");
   }
-  if (positional.length === 0) {
-    throw new Error(
-      `Usage: npm run search -- "<query>" [--kind title|company] [--limit N]`,
-    );
-  }
-  return { query: positional.join(" "), kind, limit };
+  return n;
 }
 
-async function main(): Promise<void> {
-  const { query, kind, limit } = parseArgs(process.argv.slice(2));
+function parseKind(value: string): Kind {
+  if (value !== "title" && value !== "company") {
+    throw new InvalidArgumentError("must be 'title' or 'company'");
+  }
+  return value;
+}
 
+async function runSearch(query: string, options: Options): Promise<void> {
   if (!process.env.OPENAI_API_KEY) {
     console.error(
       "OPENAI_API_KEY not set in .env — cannot embed the query. Add it and re-run.",
@@ -62,7 +44,7 @@ async function main(): Promise<void> {
     if (!embedding) throw new Error("OpenAI returned no embedding for query");
     const queryBlob = vectorToBlob(embedding);
 
-    const joinCol = kind === "title" ? "position" : "company";
+    const joinCol = options.kind === "title" ? "position" : "company";
     const sql = `
       SELECT c.first_name, c.last_name, c.company, c.position,
              c.connected_on, c.url,
@@ -72,17 +54,48 @@ async function main(): Promise<void> {
       ORDER BY distance ASC
       LIMIT ?
     `;
-    const rows = handle.sqlite.prepare(sql).all(queryBlob, kind, limit);
+    const rows = handle.sqlite
+      .prepare(sql)
+      .all(queryBlob, options.kind, options.limit);
 
     console.log(
-      JSON.stringify({ query, kind, limit, count: rows.length, rows }, null, 2),
+      JSON.stringify(
+        {
+          query,
+          kind: options.kind,
+          limit: options.limit,
+          count: rows.length,
+          rows,
+        },
+        null,
+        2,
+      ),
     );
   } finally {
     handle.close();
   }
 }
 
-main().catch((err) => {
+const program = new Command();
+
+program
+  .name("search")
+  .description(
+    "Semantic search over LinkedIn connections by title or company embedding.",
+  )
+  .argument("<query>", "natural-language query to embed and search")
+  .option(
+    "-k, --kind <kind>",
+    "which embedding to search: 'title' or 'company'",
+    parseKind,
+    "title" as Kind,
+  )
+  .option("-l, --limit <n>", "maximum number of results", parsePositiveInt, 20)
+  .action(async (query: string, options: Options) => {
+    await runSearch(query, options);
+  });
+
+program.parseAsync().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
