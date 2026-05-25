@@ -2,11 +2,7 @@
   "mcpServers": {
     "linkedin-sqlite": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-sqlite",
-        "/Users/eshaham/src/my-linkedin-data/linkedin.sqlite"
-      ]
+      "args": ["-y", "mcp-sqlite", "linkedin.sqlite"]
     }
   }
 }
