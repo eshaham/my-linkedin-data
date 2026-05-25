@@ -1,6 +1,8 @@
+import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_DB_PATH, openDb } from "../db/open.js";
+import { embedMissing } from "../embeddings/embed-missing.js";
 import { importConnections } from "../importers/connections.js";
 
 const EXPORT_DIR = path.resolve(process.cwd(), "data", "export");
@@ -20,7 +22,7 @@ function findFile(dir: string, basename: string): string | null {
   return null;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   if (!fs.existsSync(EXPORT_DIR)) {
     console.error(`No export directory found at ${EXPORT_DIR}`);
     console.error(`Unzip your LinkedIn data export into that path and re-run.`);
@@ -39,9 +41,29 @@ function main(): void {
     } else {
       console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
     }
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn(
+        "OPENAI_API_KEY not set — skipping embedding step. Add it to .env and re-run to embed new titles/companies.",
+      );
+    } else {
+      const results = await embedMissing(handle.db);
+      for (const r of results) {
+        if (r.missing === 0) {
+          console.log(`Embeddings (${r.kind}): nothing new to embed`);
+        } else {
+          console.log(
+            `Embeddings (${r.kind}): embedded ${r.embedded} new string(s)`,
+          );
+        }
+      }
+    }
   } finally {
     handle.close();
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

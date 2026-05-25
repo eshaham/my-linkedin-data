@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  blob,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 export const connections = sqliteTable(
   "connections",
@@ -31,6 +38,22 @@ export const importRuns = sqliteTable("import_runs", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const embeddings = sqliteTable(
+  "embeddings",
+  {
+    kind: text("kind").notNull(),
+    text: text("text").notNull(),
+    embedding: blob("embedding").notNull(),
+    model: text("model").notNull(),
+    embeddedAt: text("embedded_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.text] })],
+);
+
 export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type ImportRun = typeof importRuns.$inferSelect;
+export type Embedding = typeof embeddings.$inferSelect;
+export type EmbeddingKind = "title" | "company";

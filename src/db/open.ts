@@ -5,6 +5,7 @@ import {
 } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
+import * as sqliteVec from "sqlite-vec";
 import * as schema from "./schema.js";
 
 export const DEFAULT_DB_PATH = path.resolve(process.cwd(), "linkedin.sqlite");
@@ -23,6 +24,7 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH): DbHandle {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
+  sqliteVec.load(sqlite);
 
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
