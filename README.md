@@ -21,10 +21,20 @@ npm run import
 
 This produces `linkedin.sqlite` in the project root (also gitignored).
 
-Re-running with a newer export is idempotent: each importer truncates its table
-inside a transaction and reloads from the CSV, so the database always exactly
-reflects the latest export — no duplicates, and removed connections drop out.
-The `import_runs` table keeps an audit log of every run.
+The database is **append-only and immutable**. Each row stores a content hash
+of its normalized fields, with a `UNIQUE` constraint on that hash:
+
+- Re-importing the same CSV inserts zero new rows.
+- A newer export adds rows for connections that weren't seen before.
+- If a connection's company or position changed since the last export, the
+  new state is appended as a new row — the prior state is preserved. To get
+  the current state, query the most recent row per `url`.
+- Rows that _disappear_ from a newer export are kept (immutability). If you
+  need to know what was current as of a given run, filter by `import_run_id`.
+
+Every row records the `import_run_id` that introduced it and a `first_seen_at`
+timestamp. The `import_runs` table logs every import (rows in the export vs.
+rows actually inserted).
 
 ## Querying
 
