@@ -45,25 +45,28 @@ in the `embeddings` table (loaded into SQLite via the
 - Without `OPENAI_API_KEY` the embedding step is skipped and the rest of the
   import still succeeds.
 
-Find connections whose position is semantically similar to a query — note
-`vec_distance_cosine` and `vec_f32` come from the sqlite-vec extension:
-
-```sql
-WITH q AS (SELECT vec_f32('[...query vector here...]') AS v)
-SELECT c.first_name, c.last_name, c.company, c.position,
-       vec_distance_cosine(e.embedding, q.v) AS distance
-FROM connections c
-JOIN embeddings e ON e.kind = 'title' AND e.text = c.position
-CROSS JOIN q
-ORDER BY distance ASC
-LIMIT 20;
-```
-
 ## Querying
 
-Querying lives outside this repo. Point the Anthropic SQLite MCP server at
-`linkedin.sqlite` and ask Claude Code natural-language questions like _"who in
-my connections works at Anthropic?"_.
+### Structural queries (counts, lookups by exact field)
+
+Point the [`jparkerweb/mcp-sqlite`](https://github.com/jparkerweb/mcp-sqlite)
+server at `linkedin.sqlite` (already configured in `.mcp.json`) and ask Claude
+Code things like _"who in my connections works at Anthropic?"_.
+
+### Semantic search (by role or company)
+
+```bash
+npm run search -- "product manager"
+npm run search -- "AI startup" --kind company --limit 50
+```
+
+The script embeds your query with OpenAI, finds the closest pre-embedded
+titles or companies via `sqlite-vec`, joins back to `connections`, and prints
+a JSON result sorted by ascending semantic distance.
+
+In Claude Code, the `.claude/skills/semantic-search/SKILL.md` skill exposes
+this capability — just ask _"find product managers in my network"_ and Claude
+will invoke the script automatically.
 
 ## Database
 
