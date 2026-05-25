@@ -15,7 +15,9 @@ interface RawConnectionRow {
 
 function stripLinkedInPreamble(raw: string): string {
   const lines = raw.split(/\r?\n/);
-  const headerIdx = lines.findIndex((line) => line.startsWith("First Name,"));
+  const headerIdx = lines.findIndex((line) =>
+    line.replace(/^\uFEFF/, "").trimStart().startsWith("First Name,"),
+  );
   if (headerIdx === -1) return raw;
   return lines.slice(headerIdx).join("\n");
 }
