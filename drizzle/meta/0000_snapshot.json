@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "457dc755-c065-4000-8333-e92cd8d67cf8",
+  "id": "70e8958d-e083-4047-8eff-7f8d73c66141",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "connections": {
@@ -13,13 +13,6 @@
           "primaryKey": true,
           "notNull": true,
           "autoincrement": true
-        },
-        "row_hash": {
-          "name": "row_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         },
         "first_name": {
           "name": "first_name",
@@ -69,31 +62,9 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "import_run_id": {
-          "name": "import_run_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "first_seen_at": {
-          "name": "first_seen_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
         }
       },
       "indexes": {
-        "connections_row_hash_unique": {
-          "name": "connections_row_hash_unique",
-          "columns": [
-            "row_hash"
-          ],
-          "isUnique": true
-        },
         "idx_connections_url": {
           "name": "idx_connections_url",
           "columns": [
@@ -123,21 +94,7 @@
           "isUnique": false
         }
       },
-      "foreignKeys": {
-        "connections_import_run_id_import_runs_id_fk": {
-          "name": "connections_import_run_id_import_runs_id_fk",
-          "tableFrom": "connections",
-          "tableTo": "import_runs",
-          "columnsFrom": [
-            "import_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -166,15 +123,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "rows_in_export": {
-          "name": "rows_in_export",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rows_inserted": {
-          "name": "rows_inserted",
+        "rows_imported": {
+          "name": "rows_imported",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

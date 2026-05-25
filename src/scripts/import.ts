@@ -33,11 +33,9 @@ function main(): void {
   try {
     const connectionsCsv = findFile(EXPORT_DIR, "Connections.csv");
     if (connectionsCsv) {
-      const result = importConnections(handle.db, connectionsCsv);
+      const n = importConnections(handle.db, connectionsCsv);
       const rel = path.relative(process.cwd(), connectionsCsv);
-      console.log(
-        `Connections: ${result.rowsInExport} rows in ${rel}, ${result.rowsInserted} new row(s) inserted (${result.rowsInExport - result.rowsInserted} already present)`,
-      );
+      console.log(`Connections: imported ${n} rows from ${rel}`);
     } else {
       console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
     }
