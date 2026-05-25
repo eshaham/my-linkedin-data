@@ -24,7 +24,13 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH): DbHandle {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
-  sqliteVec.load(sqlite);
+  try {
+    sqliteVec.load(sqlite);
+  } catch (err) {
+    console.warn(
+      `sqlite-vec failed to load — vector functions (vec_distance_cosine, vec_f32) will be unavailable. Imports without embedding will still work. Error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });

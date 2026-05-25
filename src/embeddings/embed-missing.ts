@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, notInArray, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { DrizzleDB } from "../db/open.js";
 import { connections, embeddings, type EmbeddingKind } from "../db/schema.js";
 import { EMBEDDING_MODEL, embedTexts, vectorToBlob } from "./openai.js";
@@ -20,21 +20,14 @@ async function embedKind(
 ): Promise<EmbedResult> {
   const column = COLUMN_BY_KIND[kind];
 
-  const alreadyEmbedded = db
-    .select({ text: embeddings.text })
-    .from(embeddings)
-    .where(eq(embeddings.kind, kind))
-    .all()
-    .map((r) => r.text);
-
   const candidates = db
     .selectDistinct({ text: column })
     .from(connections)
-    .where(
-      alreadyEmbedded.length === 0
-        ? isNotNull(column)
-        : and(isNotNull(column), notInArray(column, alreadyEmbedded)),
+    .leftJoin(
+      embeddings,
+      and(eq(embeddings.kind, kind), eq(embeddings.text, column)),
     )
+    .where(and(isNotNull(column), isNull(embeddings.text)))
     .all()
     .map((r) => r.text)
     .filter((t): t is string => t !== null);
@@ -45,10 +38,23 @@ async function embedKind(
 
   const vectors = await embedTexts(candidates);
 
+  if (vectors.length !== candidates.length) {
+    throw new Error(
+      `Embedding count mismatch for kind=${kind}: got ${vectors.length} vectors for ${candidates.length} inputs`,
+    );
+  }
+  for (let i = 0; i < vectors.length; i++) {
+    if (!vectors[i] || vectors[i]!.length === 0) {
+      throw new Error(
+        `Empty embedding returned for kind=${kind} at index ${i} (text="${candidates[i]}")`,
+      );
+    }
+  }
+
   const rows = candidates.map((text, i) => ({
     kind,
     text,
-    embedding: vectorToBlob(vectors[i] ?? []),
+    embedding: vectorToBlob(vectors[i]!),
     model: EMBEDDING_MODEL,
   }));
 
