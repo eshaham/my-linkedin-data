@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "linkedin-sqlite": {
+      "command": "npx",
+      "args": ["-y", "mcp-sqlite", "linkedin.sqlite"]
+    }
+  }
+}
