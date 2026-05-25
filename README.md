@@ -21,25 +21,16 @@ npm run import
 
 This produces `linkedin.sqlite` in the project root (also gitignored).
 
+Re-running with a newer export is idempotent: each importer truncates its table
+inside a transaction and reloads from the CSV, so the database always exactly
+reflects the latest export — no duplicates, and removed connections drop out.
+The `import_runs` table keeps an audit log of every run.
+
 ## Querying
 
-### From Claude Code (SQLite MCP)
-
-Configure the SQLite MCP server to point at `linkedin.sqlite`, then ask Claude
-Code natural-language questions like _"who in my connections works at Anthropic?"_.
-
-### Typed search via Drizzle ORM
-
-```bash
-npm run search:connections -- --company Lemonade --position Engineer --limit 10
-npm run search:connections -- --name Smith
-```
-
-### Raw SQL escape hatch
-
-```bash
-npm run query -- "SELECT COUNT(*) FROM connections"
-```
+Querying lives outside this repo. Point the Anthropic SQLite MCP server at
+`linkedin.sqlite` and ask Claude Code natural-language questions like _"who in
+my connections works at Anthropic?"_.
 
 ## Database
 

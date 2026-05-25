@@ -5,7 +5,7 @@ dist/
 # LinkedIn export data is personal — never commit
 data/
 *.sqlite
-*.sqlite-journal
+*.sqlite-*
 *.db
 
 .DS_Store

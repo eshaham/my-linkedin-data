@@ -47,6 +47,8 @@ function toRow(raw: RawConnectionRow): NewConnection {
   };
 }
 
+const INSERT_CHUNK_SIZE = 500;
+
 export function importConnections(db: DrizzleDB, csvPath: string): number {
   const rawFile = fs.readFileSync(csvPath, "utf8");
   const csv = stripLinkedInPreamble(rawFile);
@@ -61,25 +63,11 @@ export function importConnections(db: DrizzleDB, csvPath: string): number {
   const rows = rawRows.map(toRow);
 
   db.transaction((tx) => {
-    for (const row of rows) {
-      if (row.url) {
-        tx.insert(connections)
-          .values(row)
-          .onConflictDoUpdate({
-            target: connections.url,
-            set: {
-              firstName: row.firstName,
-              lastName: row.lastName,
-              email: row.email,
-              company: row.company,
-              position: row.position,
-              connectedOn: row.connectedOn,
-            },
-          })
-          .run();
-      } else {
-        tx.insert(connections).values(row).run();
-      }
+    tx.delete(connections).run();
+
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + INSERT_CHUNK_SIZE);
+      if (chunk.length > 0) tx.insert(connections).values(chunk).run();
     }
 
     tx.insert(importRuns)
