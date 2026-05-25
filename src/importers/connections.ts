@@ -1,6 +1,7 @@
-import fs from "node:fs";
 import { parse } from "csv-parse/sync";
-import type Database from "better-sqlite3";
+import fs from "node:fs";
+import type { DrizzleDB } from "../db/open.js";
+import { connections, importRuns, type NewConnection } from "../db/schema.js";
 
 interface RawConnectionRow {
   "First Name"?: string;
@@ -34,58 +35,61 @@ function emptyToNull(value: string | undefined): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-export function importConnections(
-  db: Database.Database,
-  csvPath: string,
-): number {
+function toRow(raw: RawConnectionRow): NewConnection {
+  return {
+    firstName: emptyToNull(raw["First Name"]),
+    lastName: emptyToNull(raw["Last Name"]),
+    url: emptyToNull(raw["URL"]),
+    email: emptyToNull(raw["Email Address"]),
+    company: emptyToNull(raw["Company"]),
+    position: emptyToNull(raw["Position"]),
+    connectedOn: normalizeConnectedOn(raw["Connected On"]),
+  };
+}
+
+export function importConnections(db: DrizzleDB, csvPath: string): number {
   const rawFile = fs.readFileSync(csvPath, "utf8");
   const csv = stripLinkedInPreamble(rawFile);
 
-  const rows = parse(csv, {
+  const rawRows = parse(csv, {
     columns: true,
     skip_empty_lines: true,
     trim: true,
     bom: true,
   }) as RawConnectionRow[];
 
-  const upsert = db.prepare(`
-    INSERT INTO connections (first_name, last_name, url, email, company, position, connected_on)
-    VALUES (@first_name, @last_name, @url, @email, @company, @position, @connected_on)
-    ON CONFLICT(url) DO UPDATE SET
-      first_name = excluded.first_name,
-      last_name = excluded.last_name,
-      email = excluded.email,
-      company = excluded.company,
-      position = excluded.position,
-      connected_on = excluded.connected_on
-  `);
+  const rows = rawRows.map(toRow);
 
-  const insertNoUrl = db.prepare(`
-    INSERT INTO connections (first_name, last_name, url, email, company, position, connected_on)
-    VALUES (@first_name, @last_name, NULL, @email, @company, @position, @connected_on)
-  `);
-
-  const tx = db.transaction((items: RawConnectionRow[]) => {
-    for (const row of items) {
-      const params = {
-        first_name: emptyToNull(row["First Name"]),
-        last_name: emptyToNull(row["Last Name"]),
-        url: emptyToNull(row["URL"]),
-        email: emptyToNull(row["Email Address"]),
-        company: emptyToNull(row["Company"]),
-        position: emptyToNull(row["Position"]),
-        connected_on: normalizeConnectedOn(row["Connected On"]),
-      };
-      if (params.url) upsert.run(params);
-      else insertNoUrl.run(params);
+  db.transaction((tx) => {
+    for (const row of rows) {
+      if (row.url) {
+        tx.insert(connections)
+          .values(row)
+          .onConflictDoUpdate({
+            target: connections.url,
+            set: {
+              firstName: row.firstName,
+              lastName: row.lastName,
+              email: row.email,
+              company: row.company,
+              position: row.position,
+              connectedOn: row.connectedOn,
+            },
+          })
+          .run();
+      } else {
+        tx.insert(connections).values(row).run();
+      }
     }
+
+    tx.insert(importRuns)
+      .values({
+        sourceFile: csvPath,
+        tableName: "connections",
+        rowsImported: rows.length,
+      })
+      .run();
   });
-
-  tx(rows);
-
-  db.prepare(
-    `INSERT INTO import_runs (source_file, table_name, rows_imported) VALUES (?, ?, ?)`,
-  ).run(csvPath, "connections", rows.length);
 
   return rows.length;
 }

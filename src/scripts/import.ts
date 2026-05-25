@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { openDb, DEFAULT_DB_PATH } from "../db/open.js";
+import { DEFAULT_DB_PATH, openDb } from "../db/open.js";
 import { importConnections } from "../importers/connections.js";
 
 const EXPORT_DIR = path.resolve(process.cwd(), "data", "export");
@@ -27,20 +27,22 @@ function main(): void {
     process.exit(1);
   }
 
-  const db = openDb();
+  const handle = openDb();
   console.log(`Database: ${DEFAULT_DB_PATH}`);
 
-  const connectionsCsv = findFile(EXPORT_DIR, "Connections.csv");
-  if (connectionsCsv) {
-    const n = importConnections(db, connectionsCsv);
-    console.log(
-      `Imported ${n} rows from ${path.relative(process.cwd(), connectionsCsv)}`,
-    );
-  } else {
-    console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
+  try {
+    const connectionsCsv = findFile(EXPORT_DIR, "Connections.csv");
+    if (connectionsCsv) {
+      const n = importConnections(handle.db, connectionsCsv);
+      console.log(
+        `Imported ${n} rows from ${path.relative(process.cwd(), connectionsCsv)}`,
+      );
+    } else {
+      console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
+    }
+  } finally {
+    handle.close();
   }
-
-  db.close();
 }
 
 main();

@@ -8,18 +8,24 @@
     "build": "tsc -p .",
     "typecheck": "tsc -p . --noEmit",
     "import": "tsx src/scripts/import.ts",
-    "query": "tsx src/scripts/query.ts"
+    "query": "tsx src/scripts/query.ts",
+    "search:connections": "tsx src/scripts/search-connections.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
-    "csv-parse": "^5.5.6"
+    "csv-parse": "^5.5.6",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.7.4",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   }

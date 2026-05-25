@@ -7,9 +7,9 @@ function main(): void {
     process.exit(1);
   }
 
-  const db = openDb();
+  const handle = openDb();
   try {
-    const stmt = db.prepare(sql);
+    const stmt = handle.sqlite.prepare(sql);
     if (stmt.reader) {
       const rows = stmt.all();
       console.log(JSON.stringify(rows, null, 2));
@@ -18,7 +18,7 @@ function main(): void {
       console.log(JSON.stringify(info));
     }
   } finally {
-    db.close();
+    handle.close();
   }
 }
 

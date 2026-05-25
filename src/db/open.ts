@@ -1,13 +1,35 @@
 import Database from "better-sqlite3";
+import {
+  drizzle,
+  type BetterSQLite3Database,
+} from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
-import { applySchema } from "./schema.js";
+import * as schema from "./schema.js";
 
 export const DEFAULT_DB_PATH = path.resolve(process.cwd(), "linkedin.sqlite");
+export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), "drizzle");
 
-export function openDb(dbPath: string = DEFAULT_DB_PATH): Database.Database {
-  const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  return db;
+export type Schema = typeof schema;
+export type DrizzleDB = BetterSQLite3Database<Schema>;
+
+export interface DbHandle {
+  db: DrizzleDB;
+  sqlite: Database.Database;
+  close: () => void;
+}
+
+export function openDb(dbPath: string = DEFAULT_DB_PATH): DbHandle {
+  const sqlite = new Database(dbPath);
+  sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("foreign_keys = ON");
+
+  const db = drizzle(sqlite, { schema });
+  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+  return {
+    db,
+    sqlite,
+    close: () => sqlite.close(),
+  };
 }
