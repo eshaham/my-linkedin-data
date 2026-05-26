@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("import-profiles")
   .description(
-    "Import enriched LinkedIn profile data (e.g. an Apify actor run dataset) into the connection_positions table. Append-only across runs; re-importing the same URL replaces that URL's prior rows.",
+    "Import enriched LinkedIn profile data (e.g. an Apify actor run dataset). Upserts canonical 'people' rows (matched by linkedin_urn / linkedin_id / public_identifier), archives the full raw JSON in person_enrichments, and replaces person_positions per person.",
   )
   .argument(
     "<file>",
@@ -26,7 +26,7 @@ program
   )
   .option(
     "-s, --source <label>",
-    "label stored in connection_positions.source (defaults to 'apify:<adapter>')",
+    "label stored in person_positions.source / person_enrichments.source (defaults to the adapter name)",
   )
   .action((file: string, options: Options) => {
     const absPath = path.resolve(process.cwd(), file);
@@ -35,7 +35,7 @@ program
     try {
       const result = importProfiles(handle.db, absPath, options);
       console.log(
-        `Profiles: parsed ${result.recordsParsed}/${result.recordsInFile} records via adapter '${result.adapter}', touched ${result.urlsTouched} URL(s), inserted ${result.positionsInserted} position(s)`,
+        `Profiles: parsed ${result.recordsParsed}/${result.recordsInFile} via '${result.adapter}', upserted ${result.peopleUpserted} people (${result.peopleCreated} new), inserted ${result.positionsInserted} position(s), logged ${result.enrichmentsLogged} enrichment(s)`,
       );
     } finally {
       handle.close();

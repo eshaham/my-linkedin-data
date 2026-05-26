@@ -1,7 +1,11 @@
 import { parse } from "csv-parse/sync";
 import fs from "node:fs";
 import type { DrizzleDB } from "../db/open.js";
-import { importRuns, positions, type NewPosition } from "../db/schema.js";
+import {
+  importRuns,
+  linkedinExportMyPositions,
+  type NewLinkedinExportMyPosition,
+} from "../db/schema.js";
 
 interface RawPositionRow {
   "Company Name"?: string;
@@ -26,7 +30,7 @@ function normalizeDate(value: string | undefined): string | null {
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function toRow(raw: RawPositionRow): NewPosition {
+function toRow(raw: RawPositionRow): NewLinkedinExportMyPosition {
   return {
     companyName: emptyToNull(raw["Company Name"]),
     title: emptyToNull(raw.Title),
@@ -49,12 +53,13 @@ export function importPositions(db: DrizzleDB, csvPath: string): number {
   ).map(toRow);
 
   db.transaction((tx) => {
-    tx.delete(positions).run();
-    if (rows.length > 0) tx.insert(positions).values(rows).run();
+    tx.delete(linkedinExportMyPositions).run();
+    if (rows.length > 0)
+      tx.insert(linkedinExportMyPositions).values(rows).run();
     tx.insert(importRuns)
       .values({
         sourceFile: csvPath,
-        tableName: "positions",
+        tableName: "linkedin_export_my_positions",
         rowsImported: rows.length,
       })
       .run();

@@ -1,9 +1,12 @@
-import { inArray } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import fs from "node:fs";
 import type { DrizzleDB } from "../db/open.js";
 import {
-  connectionPositions,
-  type NewConnectionPosition,
+  people,
+  personEnrichments,
+  personPositions,
+  type NewPerson,
+  type NewPersonPosition,
 } from "../db/schema.js";
 import { ADAPTERS } from "./profile-adapters/adapters.js";
 import type {
@@ -14,8 +17,10 @@ import type {
 export interface ImportProfilesResult {
   recordsInFile: number;
   recordsParsed: number;
-  urlsTouched: number;
+  peopleUpserted: number;
+  peopleCreated: number;
   positionsInserted: number;
+  enrichmentsLogged: number;
   adapter: string;
 }
 
@@ -58,7 +63,8 @@ function pickAdapter(records: unknown[], explicit?: string): ProfileAdapter {
   for (const adapter of ADAPTERS) {
     let hits = 0;
     for (const r of records.slice(0, 20)) {
-      if (adapter.parse(r)) hits++;
+      const p = adapter.parse(r);
+      if (p && (p.linkedinUrn || p.linkedinId || p.publicIdentifier)) hits++;
     }
     if (hits > bestHits) {
       best = adapter;
@@ -68,6 +74,49 @@ function pickAdapter(records: unknown[], explicit?: string): ProfileAdapter {
   return best;
 }
 
+function profileToPeopleColumns(profile: ProfileRecord): Partial<NewPerson> {
+  return {
+    linkedinUrn: profile.linkedinUrn,
+    linkedinId: profile.linkedinId,
+    publicIdentifier: profile.publicIdentifier,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    headline: profile.headline,
+    jobTitle: profile.jobTitle,
+    summary: profile.summary,
+    currentCompanyName: profile.currentCompanyName,
+    currentCompanyPublicId: profile.currentCompanyPublicId,
+    currentCompanyLinkedinUrl: profile.currentCompanyLinkedinUrl,
+    countryCode: profile.countryCode,
+    geoCountryName: profile.geoCountryName,
+    geoLocationName: profile.geoLocationName,
+    geoUrn: profile.geoUrn,
+    connectionsCount: profile.connectionsCount,
+    followerCount: profile.followerCount,
+    isVerified: profile.isVerified,
+    premium: profile.premium,
+    creator: profile.creator,
+    influencer: profile.influencer,
+    connectionType: profile.connectionType,
+    pictureUrl: profile.pictureUrl,
+    coverImageUrl: profile.coverImageUrl,
+  };
+}
+
+function findPersonId(db: DrizzleDB, profile: ProfileRecord): string | null {
+  const filters = [];
+  if (profile.linkedinUrn)
+    filters.push(eq(people.linkedinUrn, profile.linkedinUrn));
+  if (profile.linkedinId)
+    filters.push(eq(people.linkedinId, profile.linkedinId));
+  if (profile.publicIdentifier)
+    filters.push(eq(people.publicIdentifier, profile.publicIdentifier));
+  if (filters.length === 0) return null;
+  const whereExpr = filters.length === 1 ? filters[0]! : or(...filters)!;
+  const row = db.select({ id: people.id }).from(people).where(whereExpr).get();
+  return row?.id ?? null;
+}
+
 export function importProfiles(
   db: DrizzleDB,
   filePath: string,
@@ -75,47 +124,88 @@ export function importProfiles(
 ): ImportProfilesResult {
   const records = readInput(filePath);
   const adapter = pickAdapter(records, options.adapter);
-  const source = options.source ?? `apify:${adapter.name}`;
+  const source = options.source ?? adapter.name;
 
   const parsed: ProfileRecord[] = [];
   for (const r of records) {
     const rec = adapter.parse(r);
-    if (rec) parsed.push(rec);
-  }
-
-  const urls = Array.from(new Set(parsed.map((p) => p.url)));
-
-  const rows: NewConnectionPosition[] = [];
-  for (const rec of parsed) {
-    for (const pos of rec.positions) {
-      rows.push({
-        url: rec.url,
-        companyName: pos.companyName,
-        title: pos.title,
-        startedOn: pos.startedOn,
-        finishedOn: pos.finishedOn,
-        stillWorking: pos.stillWorking ?? null,
-        source,
-      });
+    if (rec && (rec.linkedinUrn || rec.linkedinId || rec.publicIdentifier)) {
+      parsed.push(rec);
     }
   }
+
+  let peopleCreated = 0;
+  let peopleUpserted = 0;
+  let positionsInserted = 0;
+  let enrichmentsLogged = 0;
+  const now = new Date().toISOString();
 
   db.transaction((tx) => {
-    if (urls.length > 0) {
-      const CHUNK = 200;
-      for (let i = 0; i < urls.length; i += CHUNK) {
-        const chunk = urls.slice(i, i + CHUNK);
-        tx.delete(connectionPositions)
-          .where(inArray(connectionPositions.url, chunk))
-          .run();
+    for (const profile of parsed) {
+      const existingId = findPersonId(tx as unknown as DrizzleDB, profile);
+      const cols = profileToPeopleColumns(profile);
+      let personId: string;
+
+      if (existingId) {
+        const updates: Partial<NewPerson> = {
+          ...cols,
+          lastEnrichedAt: now,
+          lastEnrichmentSource: source,
+        };
+        for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
+          if (updates[key] === null || updates[key] === undefined) {
+            delete updates[key];
+          }
+        }
+        tx.update(people).set(updates).where(eq(people.id, existingId)).run();
+        personId = existingId;
+      } else {
+        const inserted = tx
+          .insert(people)
+          .values({
+            ...cols,
+            lastEnrichedAt: now,
+            lastEnrichmentSource: source,
+          })
+          .returning({ id: people.id })
+          .all();
+        const insertedRow = inserted[0];
+        if (!insertedRow) {
+          throw new Error("Failed to insert person row");
+        }
+        personId = insertedRow.id;
+        peopleCreated++;
       }
-    }
-    if (rows.length > 0) {
-      const CHUNK = 500;
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        tx.insert(connectionPositions)
-          .values(rows.slice(i, i + CHUNK))
-          .run();
+      peopleUpserted++;
+
+      tx.insert(personEnrichments)
+        .values({
+          personId,
+          inputUrl: profile.inputUrl,
+          source,
+          rawJson: JSON.stringify(profile.raw),
+        })
+        .run();
+      enrichmentsLogged++;
+
+      tx.delete(personPositions)
+        .where(eq(personPositions.personId, personId))
+        .run();
+
+      if (profile.positions.length > 0) {
+        const rows: NewPersonPosition[] = profile.positions.map((pos) => ({
+          personId,
+          companyName: pos.companyName,
+          title: pos.title,
+          locationName: pos.locationName,
+          description: pos.description,
+          startedOn: pos.startedOn,
+          finishedOn: pos.finishedOn,
+          stillWorking: pos.stillWorking,
+          source,
+        }));
+        tx.insert(personPositions).values(rows).run();
+        positionsInserted += rows.length;
       }
     }
   });
@@ -123,8 +213,10 @@ export function importProfiles(
   return {
     recordsInFile: records.length,
     recordsParsed: parsed.length,
-    urlsTouched: urls.length,
-    positionsInserted: rows.length,
+    peopleUpserted,
+    peopleCreated,
+    positionsInserted,
+    enrichmentsLogged,
     adapter: adapter.name,
   };
 }

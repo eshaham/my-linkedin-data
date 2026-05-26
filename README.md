@@ -25,17 +25,29 @@ npm run import
 
 This produces `linkedin.sqlite` in the project root (also gitignored).
 
-`npm run import` loads two CSVs from your export:
+The schema has two layers:
 
-| CSV               | Target table  | Strategy                                      |
-| ----------------- | ------------- | --------------------------------------------- |
-| `Connections.csv` | `connections` | wipe-and-refill                               |
-| `Positions.csv`   | `positions`   | wipe-and-refill (your own employment history) |
+**Layer 1 — raw LinkedIn export (volatile, wipe-and-refill).** Mirrors of the
+latest CSVs you imported. Get wiped every `npm run import`.
 
-Each importer truncates and reloads its table inside a transaction, so the
-database always reflects exactly what's in the latest export — no duplicates,
-removed rows drop out, changed values picked up. The `import_runs` table keeps
-an audit log of every run.
+| CSV               | Target table                   |
+| ----------------- | ------------------------------ |
+| `Connections.csv` | `linkedin_export_connections`  |
+| `Positions.csv`   | `linkedin_export_my_positions` |
+
+**Layer 2 — canonical persistent records (long-term, mutated by Apify).**
+Survive every export re-import.
+
+| Table                | Role                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `people`             | one row per LinkedIn person, UUID-keyed; identity matched by `linkedin_urn` → `linkedin_id` → `public_identifier` |
+| `person_positions`   | one row per (person, past position); replaced per-person on each enrichment                                       |
+| `person_enrichments` | append-only log of every Apify response, full raw JSON archived                                                   |
+
+On every `npm run import`, any new `public_identifier` seen in the export gets a
+minimal `people` row (just `first_name`, `last_name`, `public_identifier`). No
+`people` row is ever deleted — disconnected connections stay in `people`. Re-import
+is wipe-and-refill for Layer 1 only.
 
 ## Embeddings
 
@@ -51,40 +63,53 @@ in the `embeddings` table (loaded into SQLite via the
 - Without `OPENAI_API_KEY` the embedding step is skipped and the rest of the
   import still succeeds.
 
-## Profile enrichment (work history)
+## Profile enrichment (work history, location, headline, ...)
 
 `Connections.csv` only gives you each connection's _current_ company and
-title. To detect who you've actually **worked with**, you need each
-connection's past positions — which LinkedIn doesn't export to you.
-
-The `connection_positions` table is designed to hold that data, sourced
-from a third-party LinkedIn enrichment service (e.g. an
-[Apify](https://apify.com) actor). The import script accepts the actor's
-JSON output and lands one row per (connection, past position).
+title — no work history, no location, no headline. To get everything else,
+the enrichment pipeline ingests JSON dumps from third-party LinkedIn data
+providers (e.g. an [Apify](https://apify.com) actor).
 
 ```bash
 npm run import:profiles -- path/to/apify-dataset.json
 ```
 
-- A generic Apify-shaped adapter is included (matches common field names
-  like `experiences[]`, `companyName`, `title`, `jobStartedOn`/`jobEndedOn`).
-  Auto-detected from the file shape; override with `--adapter <name>`.
-- Per-URL wipe-and-refill: re-importing a file replaces existing rows for
-  each URL in the file. URLs not in the file are left untouched, so partial
-  re-enrichment is safe.
-- The `connection_positions` table is independent of the
-  `Connections.csv` wipe-and-refill, so it survives every regular import.
+For each profile in the JSON file:
 
-Once enriched, the "who did I work with?" question is a single join
-against your own `positions`:
+- The full raw JSON is archived in `person_enrichments` (insurance against
+  ever needing fields we didn't extract).
+- Typed scalars (location, headline, current company, country code, …) are
+  upserted into `people`, matching the existing row by `linkedin_urn` →
+  `linkedin_id` → `public_identifier`. Apify-sourced data wins on conflict.
+- `person_positions` rows for that person are replaced atomically with the
+  enriched work history.
+
+Adapters live in [`src/importers/profile-adapters/`](src/importers/profile-adapters).
+Two ship today:
+
+- `apify:supreme_coder` — the supreme_coder Apify actor's response shape.
+- `generic-apify` — best-effort fallback for other Apify actors with similar
+  flat shapes.
+
+The right adapter is auto-detected by trial parsing; override with `--adapter`.
+
+Once enriched, the "who did I work with?" question is a single join against
+your own positions:
 
 ```sql
-SELECT c.first_name, c.last_name, cp.company_name, cp.started_on, cp.finished_on
-FROM connection_positions cp
-JOIN connections c ON c.url = cp.url
-JOIN positions p ON p.company_name = cp.company_name
-WHERE (cp.finished_on IS NULL OR cp.finished_on >= p.started_on)
-  AND (p.finished_on IS NULL OR p.finished_on >= cp.started_on);
+SELECT p.first_name, p.last_name, pp.company_name, pp.title,
+       pp.started_on, pp.finished_on
+FROM person_positions pp
+JOIN people p ON p.id = pp.person_id
+JOIN linkedin_export_my_positions mp ON mp.company_name = pp.company_name
+WHERE (pp.finished_on IS NULL OR pp.finished_on >= mp.started_on)
+  AND (mp.finished_on IS NULL OR mp.finished_on >= pp.started_on);
+```
+
+And "how many connections in Israel?":
+
+```sql
+SELECT COUNT(*) FROM people WHERE country_code = 'IL';
 ```
 
 ## Querying

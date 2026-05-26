@@ -1,6 +1,10 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { DrizzleDB } from "../db/open.js";
-import { connections, embeddings, type EmbeddingKind } from "../db/schema.js";
+import {
+  embeddings,
+  linkedinExportConnections,
+  type EmbeddingKind,
+} from "../db/schema.js";
 import { EMBEDDING_MODEL, embedTexts, vectorToBlob } from "./openai.js";
 
 export interface EmbedResult {
@@ -10,8 +14,8 @@ export interface EmbedResult {
 }
 
 const COLUMN_BY_KIND = {
-  title: connections.position,
-  company: connections.company,
+  title: linkedinExportConnections.position,
+  company: linkedinExportConnections.company,
 } as const;
 
 async function embedKind(
@@ -22,7 +26,7 @@ async function embedKind(
 
   const candidates = db
     .selectDistinct({ text: column })
-    .from(connections)
+    .from(linkedinExportConnections)
     .leftJoin(
       embeddings,
       and(eq(embeddings.kind, kind), eq(embeddings.text, column)),

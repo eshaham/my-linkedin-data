@@ -36,9 +36,11 @@ async function main(): Promise<void> {
   try {
     const connectionsCsv = findFile(EXPORT_DIR, "Connections.csv");
     if (connectionsCsv) {
-      const n = importConnections(handle.db, connectionsCsv);
+      const r = importConnections(handle.db, connectionsCsv);
       const rel = path.relative(process.cwd(), connectionsCsv);
-      console.log(`Connections: imported ${n} rows from ${rel}`);
+      console.log(
+        `Connections: imported ${r.rowsImported} rows from ${rel} (${r.newPeopleCreated} new people created in canonical 'people' table)`,
+      );
     } else {
       console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
     }
@@ -47,7 +49,7 @@ async function main(): Promise<void> {
     if (positionsCsv) {
       const n = importPositions(handle.db, positionsCsv);
       const rel = path.relative(process.cwd(), positionsCsv);
-      console.log(`Positions (your own): imported ${n} rows from ${rel}`);
+      console.log(`My positions: imported ${n} rows from ${rel}`);
     } else {
       console.warn(`Positions.csv not found under ${EXPORT_DIR}`);
     }
