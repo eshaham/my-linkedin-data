@@ -1,10 +1,11 @@
-import "dotenv/config";
-import { Command, InvalidArgumentError } from "commander";
-import OpenAI from "openai";
-import { openDb } from "../db/open.js";
-import { EMBEDDING_MODEL, vectorToBlob } from "../embeddings/openai.js";
+import { Command, InvalidArgumentError } from 'commander';
+import 'dotenv/config';
+import OpenAI from 'openai';
 
-type Kind = "title" | "company";
+import { openDb } from '../db/open.js';
+import { EMBEDDING_MODEL, vectorToBlob } from '../embeddings/openai.js';
+
+type Kind = 'title' | 'company';
 
 interface Options {
   kind: Kind;
@@ -14,13 +15,13 @@ interface Options {
 function parsePositiveInt(value: string): number {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
-    throw new InvalidArgumentError("must be a positive integer");
+    throw new InvalidArgumentError('must be a positive integer');
   }
   return n;
 }
 
 function parseKind(value: string): Kind {
-  if (value !== "title" && value !== "company") {
+  if (value !== 'title' && value !== 'company') {
     throw new InvalidArgumentError("must be 'title' or 'company'");
   }
   return value;
@@ -29,7 +30,7 @@ function parseKind(value: string): Kind {
 async function runSearch(query: string, options: Options): Promise<void> {
   if (!process.env.OPENAI_API_KEY) {
     console.error(
-      "OPENAI_API_KEY not set in .env — cannot embed the query. Add it and re-run.",
+      'OPENAI_API_KEY not set in .env — cannot embed the query. Add it and re-run.',
     );
     process.exit(1);
   }
@@ -41,10 +42,10 @@ async function runSearch(query: string, options: Options): Promise<void> {
       input: query,
     });
     const embedding = res.data[0]?.embedding;
-    if (!embedding) throw new Error("OpenAI returned no embedding for query");
+    if (!embedding) throw new Error('OpenAI returned no embedding for query');
     const queryBlob = vectorToBlob(embedding);
 
-    const joinCol = options.kind === "title" ? "position" : "company";
+    const joinCol = options.kind === 'title' ? 'position' : 'company';
     const sql = `
       SELECT c.first_name, c.last_name, c.company, c.position,
              c.connected_on, c.url,
@@ -79,18 +80,18 @@ async function runSearch(query: string, options: Options): Promise<void> {
 const program = new Command();
 
 program
-  .name("search")
+  .name('search')
   .description(
-    "Semantic search over LinkedIn connections by title or company embedding.",
+    'Semantic search over LinkedIn connections by title or company embedding.',
   )
-  .argument("<query>", "natural-language query to embed and search")
+  .argument('<query>', 'natural-language query to embed and search')
   .option(
-    "-k, --kind <kind>",
+    '-k, --kind <kind>',
     "which embedding to search: 'title' or 'company'",
     parseKind,
-    "title" as Kind,
+    'title' as Kind,
   )
-  .option("-l, --limit <n>", "maximum number of results", parsePositiveInt, 20)
+  .option('-l, --limit <n>', 'maximum number of results', parsePositiveInt, 20)
   .action(async (query: string, options: Options) => {
     await runSearch(query, options);
   });

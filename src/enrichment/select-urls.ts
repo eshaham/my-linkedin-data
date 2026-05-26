@@ -1,8 +1,9 @@
-import { asc, isNotNull, isNull, sql } from "drizzle-orm";
-import type { DrizzleDB } from "../db/open.js";
-import { people } from "../db/schema.js";
+import { asc, isNotNull, isNull, sql } from 'drizzle-orm';
 
-export type SelectionMode = "missing-then-stale" | "missing" | "stale";
+import type { DrizzleDB } from '../db/open.js';
+import { people } from '../db/schema.js';
+
+export type SelectionMode = 'missing-then-stale' | 'missing' | 'stale';
 
 export interface SelectedUrl {
   personId: string;
@@ -23,11 +24,11 @@ export function selectUrlsToEnrich(
     maxAgeDays?: number;
   },
 ): SelectedUrl[] {
-  const mode = options.mode ?? "missing-then-stale";
+  const mode = options.mode ?? 'missing-then-stale';
   const limit = options.limit;
   const out: SelectedUrl[] = [];
 
-  if (mode === "missing" || mode === "missing-then-stale") {
+  if (mode === 'missing' || mode === 'missing-then-stale') {
     const missing = db
       .select({
         id: people.id,
@@ -52,7 +53,7 @@ export function selectUrlsToEnrich(
 
   if (
     out.length < limit &&
-    (mode === "stale" || mode === "missing-then-stale")
+    (mode === 'stale' || mode === 'missing-then-stale')
   ) {
     const remaining = limit - out.length;
     const cutoff =

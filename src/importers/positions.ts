@@ -1,25 +1,26 @@
-import { parse } from "csv-parse/sync";
-import fs from "node:fs";
-import type { DrizzleDB } from "../db/open.js";
+import { parse } from 'csv-parse/sync';
+import fs from 'node:fs';
+
+import type { DrizzleDB } from '../db/open.js';
 import {
+  type NewLinkedinExportMyPosition,
   importRuns,
   linkedinExportMyPositions,
-  type NewLinkedinExportMyPosition,
-} from "../db/schema.js";
+} from '../db/schema.js';
 
 interface RawPositionRow {
-  "Company Name"?: string;
+  'Company Name'?: string;
   Title?: string;
   Description?: string;
   Location?: string;
-  "Started On"?: string;
-  "Finished On"?: string;
+  'Started On'?: string;
+  'Finished On'?: string;
 }
 
 function emptyToNull(value: string | undefined): string | null {
   if (value === undefined) return null;
   const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  return trimmed === '' ? null : trimmed;
 }
 
 function normalizeDate(value: string | undefined): string | null {
@@ -27,22 +28,22 @@ function normalizeDate(value: string | undefined): string | null {
   if (!trimmed) return null;
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return trimmed;
-  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function toRow(raw: RawPositionRow): NewLinkedinExportMyPosition {
   return {
-    companyName: emptyToNull(raw["Company Name"]),
+    companyName: emptyToNull(raw['Company Name']),
     title: emptyToNull(raw.Title),
     description: emptyToNull(raw.Description),
     location: emptyToNull(raw.Location),
-    startedOn: normalizeDate(raw["Started On"]),
-    finishedOn: normalizeDate(raw["Finished On"]),
+    startedOn: normalizeDate(raw['Started On']),
+    finishedOn: normalizeDate(raw['Finished On']),
   };
 }
 
 export function importPositions(db: DrizzleDB, csvPath: string): number {
-  const raw = fs.readFileSync(csvPath, "utf8");
+  const raw = fs.readFileSync(csvPath, 'utf8');
   const rows = (
     parse(raw, {
       columns: true,
@@ -59,7 +60,7 @@ export function importPositions(db: DrizzleDB, csvPath: string): number {
     tx.insert(importRuns)
       .values({
         sourceFile: csvPath,
-        tableName: "linkedin_export_my_positions",
+        tableName: 'linkedin_export_my_positions',
         rowsImported: rows.length,
       })
       .run();

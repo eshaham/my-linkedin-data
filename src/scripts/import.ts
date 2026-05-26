@@ -1,12 +1,13 @@
-import "dotenv/config";
-import fs from "node:fs";
-import path from "node:path";
-import { DEFAULT_DB_PATH, openDb } from "../db/open.js";
-import { embedMissing } from "../embeddings/embed-missing.js";
-import { importConnections } from "../importers/connections.js";
-import { importPositions } from "../importers/positions.js";
+import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const EXPORT_DIR = path.resolve(process.cwd(), "data", "export");
+import { DEFAULT_DB_PATH, openDb } from '../db/open.js';
+import { embedMissing } from '../embeddings/embed-missing.js';
+import { importConnections } from '../importers/connections.js';
+import { importPositions } from '../importers/positions.js';
+
+const EXPORT_DIR = path.resolve(process.cwd(), 'data', 'export');
 
 function findFile(dir: string, basename: string): string | null {
   if (!fs.existsSync(dir)) return null;
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   console.log(`Database: ${DEFAULT_DB_PATH}`);
 
   try {
-    const connectionsCsv = findFile(EXPORT_DIR, "Connections.csv");
+    const connectionsCsv = findFile(EXPORT_DIR, 'Connections.csv');
     if (connectionsCsv) {
       const r = importConnections(handle.db, connectionsCsv);
       const rel = path.relative(process.cwd(), connectionsCsv);
@@ -45,7 +46,7 @@ async function main(): Promise<void> {
       console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
     }
 
-    const positionsCsv = findFile(EXPORT_DIR, "Positions.csv");
+    const positionsCsv = findFile(EXPORT_DIR, 'Positions.csv');
     if (positionsCsv) {
       const n = importPositions(handle.db, positionsCsv);
       const rel = path.relative(process.cwd(), positionsCsv);
@@ -56,7 +57,7 @@ async function main(): Promise<void> {
 
     if (!process.env.OPENAI_API_KEY) {
       console.warn(
-        "OPENAI_API_KEY not set — skipping embedding step. Add it to .env and re-run to embed new titles/companies.",
+        'OPENAI_API_KEY not set — skipping embedding step. Add it to .env and re-run to embed new titles/companies.',
       );
     } else {
       const results = await embedMissing(handle.db);
