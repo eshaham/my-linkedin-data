@@ -125,7 +125,79 @@ export const genericApifyAdapter: ProfileAdapter = {
   },
 };
 
-export const ADAPTERS: ProfileAdapter[] = [genericApifyAdapter];
+function formatYearMonth(value: unknown): string | null {
+  const obj = asRecord(value);
+  if (!obj) return null;
+  const year = typeof obj.year === "number" ? obj.year : null;
+  const month = typeof obj.month === "number" ? obj.month : null;
+  if (!year) return null;
+  if (!month) return String(year);
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function buildSupremeCoderPosition(
+  companyName: string,
+  source: Record<string, unknown>,
+): ProfilePosition {
+  const timePeriod = asRecord(source.timePeriod);
+  const startedOn = timePeriod ? formatYearMonth(timePeriod.startDate) : null;
+  const finishedOn = timePeriod ? formatYearMonth(timePeriod.endDate) : null;
+  const stillWorking = timePeriod
+    ? timePeriod.endDate === null || timePeriod.endDate === undefined
+    : null;
+  return {
+    companyName,
+    title: typeof source.title === "string" ? source.title.trim() : null,
+    startedOn,
+    finishedOn,
+    stillWorking,
+  };
+}
+
+function parseSupremeCoderEntry(value: unknown): ProfilePosition[] {
+  const obj = asRecord(value);
+  if (!obj) return [];
+  const company = asRecord(obj.company);
+  const companyName =
+    (company && typeof company.name === "string" && company.name.trim()) ||
+    null;
+  if (!companyName) return [];
+  const nested = Array.isArray(obj.positions) ? obj.positions : null;
+  if (nested && nested.length > 0) {
+    const out: ProfilePosition[] = [];
+    for (const child of nested) {
+      const childObj = asRecord(child);
+      if (childObj) out.push(buildSupremeCoderPosition(companyName, childObj));
+    }
+    return out;
+  }
+  return [buildSupremeCoderPosition(companyName, obj)];
+}
+
+export const supremeCoderApifyAdapter: ProfileAdapter = {
+  name: "apify:supreme_coder",
+  parse(raw: unknown): ProfileRecord | null {
+    const obj = asRecord(raw);
+    if (!obj) return null;
+    const publicId =
+      typeof obj.publicIdentifier === "string"
+        ? obj.publicIdentifier.trim()
+        : null;
+    if (!publicId) return null;
+    const url = `https://www.linkedin.com/in/${publicId}`;
+    const rawPositions = Array.isArray(obj.positions) ? obj.positions : [];
+    const positions: ProfilePosition[] = [];
+    for (const entry of rawPositions) {
+      positions.push(...parseSupremeCoderEntry(entry));
+    }
+    return { url, positions };
+  },
+};
+
+export const ADAPTERS: ProfileAdapter[] = [
+  supremeCoderApifyAdapter,
+  genericApifyAdapter,
+];
 
 export function adapterByName(name: string): ProfileAdapter | undefined {
   return ADAPTERS.find((a) => a.name === name);
