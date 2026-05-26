@@ -6,7 +6,9 @@ import path from 'node:path';
 
 import { openDb } from '../db/open.js';
 import {
+  type SelectionFilter,
   type SelectionMode,
+  getMyCompaniesLowercased,
   selectUrlsToEnrich,
 } from '../enrichment/select-urls.js';
 import { importProfiles } from '../importers/profiles.js';
@@ -23,6 +25,7 @@ const DEFAULT_CHUNK_SIZE = 500;
 interface Options {
   limit: number;
   mode: SelectionMode;
+  filter: SelectionFilter;
   actor: string;
   adapter: string;
   chunkSize: number;
@@ -51,13 +54,34 @@ function parseMode(value: string): SelectionMode {
   return value;
 }
 
+function parseFilter(value: string): SelectionFilter {
+  if (value !== 'all' && value !== 'at-my-companies') {
+    throw new InvalidArgumentError("must be 'all' or 'at-my-companies'");
+  }
+  return value;
+}
+
 async function runEnrichment(options: Options): Promise<void> {
   const handle = openDb();
   try {
+    if (options.filter === 'at-my-companies') {
+      const myCompanies = getMyCompaniesLowercased(handle.db);
+      if (myCompanies.length === 0) {
+        console.error(
+          "Filter 'at-my-companies' is active but no rows found in linkedin_export_my_positions. Run `npm run import` first.",
+        );
+        process.exit(1);
+      }
+      console.log(
+        `Filter 'at-my-companies' is active. Matching connections currently at any of:\n  ${myCompanies.join(', ')}`,
+      );
+    }
+
     const targets = selectUrlsToEnrich(handle.db, {
       limit: options.limit,
       mode: options.mode,
       maxAgeDays: options.maxAgeDays,
+      filter: options.filter,
     });
 
     if (targets.length === 0) {
@@ -183,6 +207,12 @@ program
     "selection: 'missing' (only never-enriched), 'stale' (only previously-enriched), or 'missing-then-stale'",
     parseMode,
     'missing-then-stale' as SelectionMode,
+  )
+  .option(
+    '-f, --filter <filter>',
+    "scope: 'all' (default) or 'at-my-companies' (only connections currently at one of your past employers, per Positions.csv)",
+    parseFilter,
+    'all' as SelectionFilter,
   )
   .option(
     '--max-age-days <n>',
