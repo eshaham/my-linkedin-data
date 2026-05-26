@@ -4,6 +4,7 @@ import path from "node:path";
 import { DEFAULT_DB_PATH, openDb } from "../db/open.js";
 import { embedMissing } from "../embeddings/embed-missing.js";
 import { importConnections } from "../importers/connections.js";
+import { importPositions } from "../importers/positions.js";
 
 const EXPORT_DIR = path.resolve(process.cwd(), "data", "export");
 
@@ -40,6 +41,15 @@ async function main(): Promise<void> {
       console.log(`Connections: imported ${n} rows from ${rel}`);
     } else {
       console.warn(`Connections.csv not found under ${EXPORT_DIR}`);
+    }
+
+    const positionsCsv = findFile(EXPORT_DIR, "Positions.csv");
+    if (positionsCsv) {
+      const n = importPositions(handle.db, positionsCsv);
+      const rel = path.relative(process.cwd(), positionsCsv);
+      console.log(`Positions (your own): imported ${n} rows from ${rel}`);
+    } else {
+      console.warn(`Positions.csv not found under ${EXPORT_DIR}`);
     }
 
     if (!process.env.OPENAI_API_KEY) {

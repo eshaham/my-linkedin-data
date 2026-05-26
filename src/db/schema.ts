@@ -52,8 +52,50 @@ export const embeddings = sqliteTable(
   (t) => [primaryKey({ columns: [t.kind, t.text] })],
 );
 
+export const positions = sqliteTable(
+  "positions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    companyName: text("company_name"),
+    title: text("title"),
+    description: text("description"),
+    location: text("location"),
+    startedOn: text("started_on"),
+    finishedOn: text("finished_on"),
+  },
+  (t) => [
+    index("idx_positions_company").on(t.companyName),
+    index("idx_positions_started").on(t.startedOn),
+  ],
+);
+
+export const connectionPositions = sqliteTable(
+  "connection_positions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    url: text("url").notNull(),
+    companyName: text("company_name").notNull(),
+    title: text("title"),
+    startedOn: text("started_on"),
+    finishedOn: text("finished_on"),
+    stillWorking: integer("still_working", { mode: "boolean" }),
+    source: text("source").notNull(),
+    enrichedAt: text("enriched_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    index("idx_cp_url").on(t.url),
+    index("idx_cp_company").on(t.companyName),
+  ],
+);
+
 export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type ImportRun = typeof importRuns.$inferSelect;
 export type Embedding = typeof embeddings.$inferSelect;
 export type EmbeddingKind = "title" | "company";
+export type Position = typeof positions.$inferSelect;
+export type NewPosition = typeof positions.$inferInsert;
+export type ConnectionPosition = typeof connectionPositions.$inferSelect;
+export type NewConnectionPosition = typeof connectionPositions.$inferInsert;

@@ -25,11 +25,17 @@ npm run import
 
 This produces `linkedin.sqlite` in the project root (also gitignored).
 
-Re-importing is **wipe-and-refill** for the `connections` table: each importer
-truncates and reloads from the CSV inside a transaction, so the database always
-reflects exactly what's in the latest export — no duplicates, removed
-connections drop out, changed companies/positions are picked up. The
-`import_runs` table keeps an audit log of every run.
+`npm run import` loads two CSVs from your export:
+
+| CSV               | Target table  | Strategy                                      |
+| ----------------- | ------------- | --------------------------------------------- |
+| `Connections.csv` | `connections` | wipe-and-refill                               |
+| `Positions.csv`   | `positions`   | wipe-and-refill (your own employment history) |
+
+Each importer truncates and reloads its table inside a transaction, so the
+database always reflects exactly what's in the latest export — no duplicates,
+removed rows drop out, changed values picked up. The `import_runs` table keeps
+an audit log of every run.
 
 ## Embeddings
 
@@ -44,6 +50,42 @@ in the `embeddings` table (loaded into SQLite via the
   only embed strings that didn't appear in any prior export.
 - Without `OPENAI_API_KEY` the embedding step is skipped and the rest of the
   import still succeeds.
+
+## Profile enrichment (work history)
+
+`Connections.csv` only gives you each connection's _current_ company and
+title. To detect who you've actually **worked with**, you need each
+connection's past positions — which LinkedIn doesn't export to you.
+
+The `connection_positions` table is designed to hold that data, sourced
+from a third-party LinkedIn enrichment service (e.g. an
+[Apify](https://apify.com) actor). The import script accepts the actor's
+JSON output and lands one row per (connection, past position).
+
+```bash
+npm run import:profiles -- path/to/apify-dataset.json
+```
+
+- A generic Apify-shaped adapter is included (matches common field names
+  like `experiences[]`, `companyName`, `title`, `jobStartedOn`/`jobEndedOn`).
+  Auto-detected from the file shape; override with `--adapter <name>`.
+- Per-URL wipe-and-refill: re-importing a file replaces existing rows for
+  each URL in the file. URLs not in the file are left untouched, so partial
+  re-enrichment is safe.
+- The `connection_positions` table is independent of the
+  `Connections.csv` wipe-and-refill, so it survives every regular import.
+
+Once enriched, the "who did I work with?" question is a single join
+against your own `positions`:
+
+```sql
+SELECT c.first_name, c.last_name, cp.company_name, cp.started_on, cp.finished_on
+FROM connection_positions cp
+JOIN connections c ON c.url = cp.url
+JOIN positions p ON p.company_name = cp.company_name
+WHERE (cp.finished_on IS NULL OR cp.finished_on >= p.started_on)
+  AND (p.finished_on IS NULL OR p.finished_on >= cp.started_on);
+```
 
 ## Querying
 
