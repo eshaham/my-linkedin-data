@@ -1,22 +1,23 @@
-import "dotenv/config";
-import { Command, InvalidArgumentError } from "commander";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { openDb } from "../db/open.js";
+import { Command, InvalidArgumentError } from 'commander';
+import 'dotenv/config';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { openDb } from '../db/open.js';
+import {
+  type SelectionMode,
+  selectUrlsToEnrich,
+} from '../enrichment/select-urls.js';
+import { importProfiles } from '../importers/profiles.js';
 import {
   fetchDatasetItems,
   startActorRun,
   waitForRun,
-} from "../lib/apify-client.js";
-import {
-  selectUrlsToEnrich,
-  type SelectionMode,
-} from "../enrichment/select-urls.js";
-import { importProfiles } from "../importers/profiles.js";
+} from '../lib/apify-client.js';
 
-const DEFAULT_ACTOR = "supreme_coder~linkedin-profile-scraper";
-const DEFAULT_ADAPTER = "apify:supreme_coder";
+const DEFAULT_ACTOR = 'supreme_coder~linkedin-profile-scraper';
+const DEFAULT_ADAPTER = 'apify:supreme_coder';
 const DEFAULT_CHUNK_SIZE = 500;
 
 interface Options {
@@ -32,16 +33,16 @@ interface Options {
 function parsePositiveInt(value: string): number {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
-    throw new InvalidArgumentError("must be a positive integer");
+    throw new InvalidArgumentError('must be a positive integer');
   }
   return n;
 }
 
 function parseMode(value: string): SelectionMode {
   if (
-    value !== "missing" &&
-    value !== "stale" &&
-    value !== "missing-then-stale"
+    value !== 'missing' &&
+    value !== 'stale' &&
+    value !== 'missing-then-stale'
   ) {
     throw new InvalidArgumentError(
       "must be 'missing', 'stale', or 'missing-then-stale'",
@@ -60,7 +61,7 @@ async function runEnrichment(options: Options): Promise<void> {
     });
 
     if (targets.length === 0) {
-      console.log("Nothing to enrich — no matching people in the database.");
+      console.log('Nothing to enrich — no matching people in the database.');
       return;
     }
 
@@ -77,10 +78,10 @@ async function runEnrichment(options: Options): Promise<void> {
     );
 
     if (options.dryRun) {
-      console.log("--dry-run: not running the actor. First 5 targets:");
+      console.log('--dry-run: not running the actor. First 5 targets:');
       for (const t of targets.slice(0, 5)) {
         console.log(
-          `  ${t.publicIdentifier}  (last_enriched_at=${t.lastEnrichedAt ?? "never"})`,
+          `  ${t.publicIdentifier}  (last_enriched_at=${t.lastEnrichedAt ?? 'never'})`,
         );
       }
       return;
@@ -88,7 +89,7 @@ async function runEnrichment(options: Options): Promise<void> {
 
     if (!process.env.APIFY_TOKEN) {
       console.error(
-        "APIFY_TOKEN not set in env. Run `plugga setup apify --account personal` or add it to .env, then re-run.",
+        'APIFY_TOKEN not set in env. Run `plugga setup apify --account personal` or add it to .env, then re-run.',
       );
       process.exit(1);
     }
@@ -102,7 +103,7 @@ async function runEnrichment(options: Options): Promise<void> {
     let totalCreated = 0;
     let totalPositions = 0;
     let chunkNum = 0;
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "apify-enrich-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apify-enrich-'));
 
     for (const chunk of chunks) {
       chunkNum++;
@@ -118,13 +119,13 @@ async function runEnrichment(options: Options): Promise<void> {
         pollIntervalMs: 5_000,
         timeoutMs: 30 * 60_000,
         onTick: (r) => {
-          if (r.status !== "RUNNING" && r.status !== "READY") {
+          if (r.status !== 'RUNNING' && r.status !== 'READY') {
             console.log(`[${chunkLabel}] status=${r.status}`);
           }
         },
       });
 
-      if (finished.status !== "SUCCEEDED") {
+      if (finished.status !== 'SUCCEEDED') {
         console.error(
           `[${chunkLabel}] run did not succeed (status=${finished.status}). Stopping.`,
         );
@@ -167,46 +168,46 @@ async function runEnrichment(options: Options): Promise<void> {
 const program = new Command();
 
 program
-  .name("enrich")
+  .name('enrich')
   .description(
-    "Run an Apify LinkedIn-profile-scraper actor against people in our database, prioritising never-enriched profiles, then refreshing stale ones (oldest last_enriched_at first).",
+    'Run an Apify LinkedIn-profile-scraper actor against people in our database, prioritising never-enriched profiles, then refreshing stale ones (oldest last_enriched_at first).',
   )
   .option(
-    "-n, --limit <n>",
-    "max profiles to enrich in this run",
+    '-n, --limit <n>',
+    'max profiles to enrich in this run',
     parsePositiveInt,
     50,
   )
   .option(
-    "-m, --mode <mode>",
+    '-m, --mode <mode>',
     "selection: 'missing' (only never-enriched), 'stale' (only previously-enriched), or 'missing-then-stale'",
     parseMode,
-    "missing-then-stale" as SelectionMode,
+    'missing-then-stale' as SelectionMode,
   )
   .option(
-    "--max-age-days <n>",
-    "when selecting stale rows, only refresh those last enriched more than N days ago",
+    '--max-age-days <n>',
+    'when selecting stale rows, only refresh those last enriched more than N days ago',
     parsePositiveInt,
   )
   .option(
-    "--actor <id>",
-    "Apify actor id (tilde-separated, e.g. user~actor)",
+    '--actor <id>',
+    'Apify actor id (tilde-separated, e.g. user~actor)',
     DEFAULT_ACTOR,
   )
   .option(
-    "--adapter <name>",
+    '--adapter <name>',
     "adapter to use when importing the actor's output",
     DEFAULT_ADAPTER,
   )
   .option(
-    "--chunk-size <n>",
-    "max URLs per actor run",
+    '--chunk-size <n>',
+    'max URLs per actor run',
     parsePositiveInt,
     DEFAULT_CHUNK_SIZE,
   )
   .option(
-    "--dry-run",
-    "print the selected targets without calling Apify",
+    '--dry-run',
+    'print the selected targets without calling Apify',
     false,
   )
   .action(async (options: Options) => {

@@ -1,11 +1,11 @@
-const API_BASE = "https://api.apify.com/v2";
+const API_BASE = 'https://api.apify.com/v2';
 
 const TERMINAL_STATUSES = new Set([
-  "SUCCEEDED",
-  "FAILED",
-  "ABORTED",
-  "TIMED-OUT",
-  "TIMING-OUT",
+  'SUCCEEDED',
+  'FAILED',
+  'ABORTED',
+  'TIMED-OUT',
+  'TIMING-OUT',
 ]);
 
 export interface ApifyRunResult {
@@ -21,19 +21,19 @@ function token(): string {
   const t = process.env.APIFY_TOKEN;
   if (!t) {
     throw new Error(
-      "APIFY_TOKEN not set in env. Run `plugga setup apify --account personal` or add it to .env.",
+      'APIFY_TOKEN not set in env. Run `plugga setup apify --account personal` or add it to .env.',
     );
   }
   return t;
 }
 
 async function apifyJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: {
       Authorization: `Bearer ${token()}`,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(init.headers as Record<string, string> | undefined),
     },
   });
@@ -58,7 +58,7 @@ export async function startActorRun(
       stats?: { resultsCount?: number };
     };
   }>(`/acts/${encodeURIComponent(actorId)}/runs`, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify(input),
   });
   return {

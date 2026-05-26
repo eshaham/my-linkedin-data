@@ -1,10 +1,10 @@
-import type { Config } from "drizzle-kit";
+import type { Config } from 'drizzle-kit';
 
 export default {
-  schema: "./src/db/schema.ts",
-  out: "./drizzle",
-  dialect: "sqlite",
+  schema: './src/db/schema.ts',
+  out: './drizzle',
+  dialect: 'sqlite',
   dbCredentials: {
-    url: "./linkedin.sqlite",
+    url: './linkedin.sqlite',
   },
 } satisfies Config;

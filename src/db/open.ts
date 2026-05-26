@@ -1,15 +1,16 @@
-import Database from "better-sqlite3";
+import Database from 'better-sqlite3';
 import {
-  drizzle,
   type BetterSQLite3Database,
-} from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import path from "node:path";
-import * as sqliteVec from "sqlite-vec";
-import * as schema from "./schema.js";
+  drizzle,
+} from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import path from 'node:path';
+import * as sqliteVec from 'sqlite-vec';
 
-export const DEFAULT_DB_PATH = path.resolve(process.cwd(), "linkedin.sqlite");
-export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), "drizzle");
+import * as schema from './schema.js';
+
+export const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'linkedin.sqlite');
+export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), 'drizzle');
 
 export type Schema = typeof schema;
 export type DrizzleDB = BetterSQLite3Database<Schema>;
@@ -22,8 +23,8 @@ export interface DbHandle {
 
 export function openDb(dbPath: string = DEFAULT_DB_PATH): DbHandle {
   const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('foreign_keys = ON');
   try {
     sqliteVec.load(sqlite);
   } catch (err) {

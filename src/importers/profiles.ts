@@ -1,18 +1,19 @@
-import { eq, or } from "drizzle-orm";
-import fs from "node:fs";
-import type { DrizzleDB } from "../db/open.js";
+import { eq, or } from 'drizzle-orm';
+import fs from 'node:fs';
+
+import type { DrizzleDB } from '../db/open.js';
 import {
+  type NewPerson,
+  type NewPersonPosition,
   people,
   personEnrichments,
   personPositions,
-  type NewPerson,
-  type NewPersonPosition,
-} from "../db/schema.js";
-import { ADAPTERS } from "./profile-adapters/adapters.js";
+} from '../db/schema.js';
+import { ADAPTERS } from './profile-adapters/adapters.js';
 import type {
   ProfileAdapter,
   ProfileRecord,
-} from "./profile-adapters/types.js";
+} from './profile-adapters/types.js';
 
 export interface ImportProfilesResult {
   recordsInFile: number;
@@ -25,9 +26,9 @@ export interface ImportProfilesResult {
 }
 
 function readInput(filePath: string): unknown[] {
-  const raw = fs.readFileSync(filePath, "utf8").trim();
-  if (raw === "") return [];
-  if (raw.startsWith("[")) {
+  const raw = fs.readFileSync(filePath, 'utf8').trim();
+  if (raw === '') return [];
+  if (raw.startsWith('[')) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
       throw new Error(`Top-level JSON must be an array, got ${typeof parsed}`);
@@ -36,7 +37,7 @@ function readInput(filePath: string): unknown[] {
   }
   return raw
     .split(/\n+/)
-    .filter((line) => line.trim() !== "")
+    .filter((line) => line.trim() !== '')
     .map((line, idx) => {
       try {
         return JSON.parse(line);
@@ -53,7 +54,7 @@ function pickAdapter(records: unknown[], explicit?: string): ProfileAdapter {
     const found = ADAPTERS.find((a) => a.name === explicit);
     if (!found) {
       throw new Error(
-        `Unknown adapter '${explicit}'. Available: ${ADAPTERS.map((a) => a.name).join(", ")}`,
+        `Unknown adapter '${explicit}'. Available: ${ADAPTERS.map((a) => a.name).join(', ')}`,
       );
     }
     return found;
@@ -171,7 +172,7 @@ export function importProfiles(
           .all();
         const insertedRow = inserted[0];
         if (!insertedRow) {
-          throw new Error("Failed to insert person row");
+          throw new Error('Failed to insert person row');
         }
         personId = insertedRow.id;
         peopleCreated++;

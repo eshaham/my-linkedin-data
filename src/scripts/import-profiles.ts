@@ -1,8 +1,9 @@
-import { Command } from "commander";
-import path from "node:path";
-import { DEFAULT_DB_PATH, openDb } from "../db/open.js";
-import { ADAPTERS } from "../importers/profile-adapters/adapters.js";
-import { importProfiles } from "../importers/profiles.js";
+import { Command } from 'commander';
+import path from 'node:path';
+
+import { DEFAULT_DB_PATH, openDb } from '../db/open.js';
+import { ADAPTERS } from '../importers/profile-adapters/adapters.js';
+import { importProfiles } from '../importers/profiles.js';
 
 interface Options {
   adapter?: string;
@@ -12,21 +13,21 @@ interface Options {
 const program = new Command();
 
 program
-  .name("import-profiles")
+  .name('import-profiles')
   .description(
     "Import enriched LinkedIn profile data (e.g. an Apify actor run dataset). Upserts canonical 'people' rows (matched by linkedin_urn / linkedin_id / public_identifier), archives the full raw JSON in person_enrichments, and replaces person_positions per person.",
   )
   .argument(
-    "<file>",
-    "path to a JSON or JSONL file of profile records (e.g. Apify dataset export)",
+    '<file>',
+    'path to a JSON or JSONL file of profile records (e.g. Apify dataset export)',
   )
   .option(
-    "-a, --adapter <name>",
-    `parser to use; one of: ${ADAPTERS.map((a) => a.name).join(", ")}. Auto-detected from the file if omitted.`,
+    '-a, --adapter <name>',
+    `parser to use; one of: ${ADAPTERS.map((a) => a.name).join(', ')}. Auto-detected from the file if omitted.`,
   )
   .option(
-    "-s, --source <label>",
-    "label stored in person_positions.source / person_enrichments.source (defaults to the adapter name)",
+    '-s, --source <label>',
+    'label stored in person_positions.source / person_enrichments.source (defaults to the adapter name)',
   )
   .action((file: string, options: Options) => {
     const absPath = path.resolve(process.cwd(), file);

@@ -1,9 +1,7 @@
 {
   "recipes": {
     "apify": {
-      "accounts": [
-        "personal"
-      ]
+      "accounts": ["personal"]
     }
   }
 }

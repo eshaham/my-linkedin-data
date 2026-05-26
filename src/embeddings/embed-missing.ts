@@ -1,11 +1,12 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import type { DrizzleDB } from "../db/open.js";
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+
+import type { DrizzleDB } from '../db/open.js';
 import {
+  type EmbeddingKind,
   embeddings,
   linkedinExportConnections,
-  type EmbeddingKind,
-} from "../db/schema.js";
-import { EMBEDDING_MODEL, embedTexts, vectorToBlob } from "./openai.js";
+} from '../db/schema.js';
+import { EMBEDDING_MODEL, embedTexts, vectorToBlob } from './openai.js';
 
 export interface EmbedResult {
   kind: EmbeddingKind;
@@ -76,7 +77,7 @@ async function embedKind(
 }
 
 export async function embedMissing(db: DrizzleDB): Promise<EmbedResult[]> {
-  return [await embedKind(db, "title"), await embedKind(db, "company")];
+  return [await embedKind(db, 'title'), await embedKind(db, 'company')];
 }
 
 export function embeddingStats(db: DrizzleDB): { kind: string; n: number }[] {
