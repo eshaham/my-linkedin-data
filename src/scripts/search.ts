@@ -49,7 +49,7 @@ async function runSearch(query: string, options: Options): Promise<void> {
       SELECT c.first_name, c.last_name, c.company, c.position,
              c.connected_on, c.url,
              ROUND(vec_distance_cosine(e.embedding, ?), 4) AS distance
-      FROM connections c
+      FROM linkedin_export_connections c
       JOIN embeddings e ON e.kind = ? AND e.text = c.${joinCol}
       ORDER BY distance ASC
       LIMIT ?
