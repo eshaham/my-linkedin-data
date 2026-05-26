@@ -9,6 +9,7 @@
     "typecheck": "tsc -p . --noEmit",
     "import": "tsx src/scripts/import.ts",
     "import:profiles": "tsx src/scripts/import-profiles.ts",
+    "enrich": "tsx src/scripts/enrich.ts",
     "search": "tsx src/scripts/search.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

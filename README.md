@@ -70,6 +70,32 @@ title — no work history, no location, no headline. To get everything else,
 the enrichment pipeline ingests JSON dumps from third-party LinkedIn data
 providers (e.g. an [Apify](https://apify.com) actor).
 
+### Batch enrichment via the Apify API
+
+The `enrich` command does the round trip automatically — picks which people
+to enrich, calls the Apify actor, polls until done, fetches the dataset, and
+imports it. Set `APIFY_TOKEN` in `.env` first.
+
+```bash
+# defaults: 50 profiles, never-enriched first, then refresh stale (oldest first)
+npm run enrich
+
+# bigger batch, just inspect what would run
+npm run enrich -- --limit 500 --dry-run
+
+# only re-enrich profiles older than 90 days
+npm run enrich -- --limit 100 --mode stale --max-age-days 90
+```
+
+`enrich` runs the actor in chunks (default 500 URLs per actor run) using
+the async API + polling, so it doesn't get killed by the synchronous
+endpoint's 5-minute cap.
+
+### Manual one-off import
+
+If you already have an Apify dataset JSON on disk (downloaded from the
+Apify console, for instance), import it directly:
+
 ```bash
 npm run import:profiles -- path/to/apify-dataset.json
 ```
