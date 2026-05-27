@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.log
+.husky/_/
 
 # LinkedIn export data is personal — never commit
 data/
